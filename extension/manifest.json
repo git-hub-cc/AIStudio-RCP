@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "远程控制代理",
+  "version": "1.2.0",
+  "description": "用于浏览器远程控制系统的代理程序，现已集成AI助手功能。",
+  "permissions": [
+    "storage",
+    "tabs",
+    "scripting",
+    "debugger",
+    "declarativeNetRequest"
+  ],
+  "host_permissions": [
+    "*://*/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_page": "options.html",
+  "action": {
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png"
+    },
+    "default_title": "远程控制代理设置"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ruleset_1",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  }
+}

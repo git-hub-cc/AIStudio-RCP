@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>浏览器远程控制器</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="container">
+    <header>
+        <h1>浏览器远程控制器</h1>
+        <div class="status-bar">
+            <span>服务器连接:</span>
+            <span id="serverStatus" class="status-indicator disconnected"></span>
+        </div>
+    </header>
+
+    <main>
+        <div class="control-panel">
+            <h2>控制面板</h2>
+            <div class="form-group">
+                <label for="agentSelector">选择目标代理:</label>
+                <select id="agentSelector"></select>
+            </div>
+
+            <fieldset>
+                <legend>创建新标签页</legend>
+                <div class="form-group">
+                    <input type="text" id="urlInput" placeholder="https://example.com" value="https://www.google.com">
+                    <button id="createTabBtn">创建标签页</button>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>获取活动标签页信息</legend>
+                <div class="form-group">
+                    <button id="getTitleBtn">获取标题</button>
+                </div>
+            </fieldset>
+
+            <!-- NEW: AI助手面板 -->
+            <fieldset>
+                <legend>AI 助手 (Google AI Studio)</legend>
+                <div class="form-group vertical">
+                    <textarea id="aiPrompt" rows="5" placeholder="在此输入您想问AI的问题..."></textarea>
+                    <button id="askAiBtn">发送给 AI</button>
+                </div>
+                <!-- NEW ELEMENT FOR RESPONSE PREVIEW -->
+                <div class="response-preview">
+                    <strong>最新响应预览:</strong>
+                    <pre id="aiResponsePreview">等待AI响应...</pre>
+                </div>
+            </fieldset>
+        </div>
+
+        <div class="log-panel">
+            <h2>日志 & 结果</h2>
+            <pre id="logArea">等待连接...</pre>
+        </div>
+    </main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
