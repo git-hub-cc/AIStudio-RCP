@@ -355,6 +355,9 @@ async function handleCommand(command) {
     try {
         let responseData = {};
         switch (action) {
+            // =================================================================
+            // 基础浏览器操作
+            // =================================================================
             case 'create_tab':
                 if (payload && payload.url) {
                     await chrome.tabs.create({ url: payload.url });
@@ -366,15 +369,18 @@ async function handleCommand(command) {
                 break;
 
             case 'get_title':
-                const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-                if (activeTab) {
-                    responseData = { title: activeTab.title, url: activeTab.url };
+                const [activeTabForTitle] = await chrome.tabs.query({ active: true, currentWindow: true });
+                if (activeTabForTitle) {
+                    responseData = { title: activeTabForTitle.title, url: activeTabForTitle.url };
                 } else {
                     throw new Error('未找到活动的标签页。');
                 }
                 sendResponse(id, 'success', responseData);
                 break;
 
+            // =================================================================
+            // AI 助手
+            // =================================================================
             case 'ask_ai':
                 if (!payload || !payload.prompt) {
                     throw new Error('ask_ai 的 payload 中缺少 prompt 参数');
@@ -393,50 +399,29 @@ async function handleCommand(command) {
                 // 步骤 2: 准备监听AI响应 (这是异步的，Promise立即返回)
                 const aiResponsePromise = waitForAiResponse(tabId);
 
-                // START OF MODIFICATION: 增强的脚本注入逻辑
                 // 步骤 3: 注入一个健壮的脚本，该脚本会等待输入框出现，然后输入内容并触发送信。
-                // 这个脚本会在目标页面内部执行，直到成功或超时。
                 await executeScriptInTab(tabId, (prompt, timeout) => {
-                    // 这个函数及其内部逻辑将在目标标签页的上下文中执行
                     return new Promise((resolve, reject) => {
                         const startTime = Date.now();
                         const selector = 'ms-autosize-textarea textarea';
-
                         const intervalId = setInterval(() => {
-                            // 检查是否超时
                             if (Date.now() - startTime > timeout) {
                                 clearInterval(intervalId);
                                 reject(new Error(`在页面上等待输入框 ('${selector}') 超时 (${timeout / 1000}秒)`));
                                 return;
                             }
-
                             const textarea = document.querySelector(selector);
-                            // 如果找到了textarea
                             if (textarea) {
                                 clearInterval(intervalId);
-
-                                // 1. 填入内容
                                 textarea.value = prompt;
-                                // 2. 模拟输入事件，确保页面框架(如React, Angular)能识别内容变化
                                 textarea.dispatchEvent(new Event('input', { bubbles: true }));
-
-                                // 3. 模拟 Ctrl+Enter 快捷键来发送消息
-                                const event = new KeyboardEvent('keydown', {
-                                    key: 'Enter',
-                                    code: 'Enter',
-                                    ctrlKey: true,
-                                    bubbles: true,
-                                    cancelable: true
-                                });
+                                const event = new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', ctrlKey: true, bubbles: true, cancelable: true });
                                 textarea.dispatchEvent(event);
-
-                                // 4. 操作完成，解决Promise
                                 resolve();
                             }
-                        }, 200); // 每200毫秒检查一次
+                        }, 200);
                     });
                 }, [payload.prompt, PAGE_LOAD_TIMEOUT]);
-                // END OF MODIFICATION
 
                 // 步骤 4: 等待之前启动的监听器捕获到AI的响应
                 console.log("指令已发送，正在等待AI响应...");
@@ -445,6 +430,157 @@ async function handleCommand(command) {
                 sendResponse(id, 'success', responseData);
                 break;
 
+            // =================================================================
+            // 新增功能: 页面捕获与信息获取
+            // =================================================================
+
+            /**
+             * @action capture_page
+             * @description 将当前活动标签页保存为 MHTML 文件，并下载到本地。
+             * @payload {} (无需额外参数)
+             */
+            case 'capture_page':
+                const [activeTabForCapture] = await chrome.tabs.query({ active: true, currentWindow: true });
+                if (!activeTabForCapture) {
+                    throw new Error('未找到活动的标签页以进行捕获。');
+                }
+
+                // chrome.pageCapture.saveAsMHTML's callback receives the MHTML data as a Blob
+                const mhtmlBlob = await new Promise(resolve => {
+                    chrome.pageCapture.saveAsMHTML({ tabId: activeTabForCapture.id }, resolve);
+                });
+
+                // Convert Blob to Data URL because URL.createObjectURL is not available in Service Workers.
+                const dataUrl = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject(reader.error);
+                    reader.readAsDataURL(mhtmlBlob);
+                });
+
+                const filename = `capture-${new URL(activeTabForCapture.url).hostname}-${Date.now()}.mhtml`;
+
+                // Use the Data URL to trigger the download
+                await chrome.downloads.download({ url: dataUrl, filename });
+
+                responseData = { message: `页面已成功捕获并保存为 ${filename}` };
+                sendResponse(id, 'success', responseData);
+                break;
+
+            /**
+             * @action manage_cookies
+             * @description 管理指定URL的Cookie (获取, 设置, 删除, 获取全部)。
+             * @payload { "sub_action": "get"|"set"|"remove"|"getAll", "params": { ... } }
+             *   - get: { "url": "...", "name": "..." }
+             *   - set: { "url": "...", "name": "...", "value": "...", "expirationDate": ... }
+             *   - remove: { "url": "...", "name": "..." }
+             *   - getAll: { "url": "..." }
+             */
+            case 'manage_cookies':
+                if (!payload || !payload.sub_action || !payload.params) {
+                    throw new Error('manage_cookies 的 payload 格式不正确，需要 sub_action 和 params');
+                }
+                const { sub_action, params } = payload;
+                let cookieResult;
+                switch (sub_action) {
+                    case 'get':
+                        if (!params.url || !params.name) throw new Error('获取Cookie需要 url 和 name');
+                        cookieResult = await chrome.cookies.get({ url: params.url, name: params.name });
+                        responseData = { cookie: cookieResult };
+                        break;
+                    case 'set':
+                        if (!params.url || !params.name) throw new Error('设置Cookie需要 url 和 name');
+                        // expirationDate 是可选的
+                        await chrome.cookies.set({ ...params });
+                        responseData = { message: `在 ${params.url} 上设置Cookie '${params.name}' 成功。` };
+                        break;
+                    case 'remove':
+                        if (!params.url || !params.name) throw new Error('移除Cookie需要 url 和 name');
+                        await chrome.cookies.remove({ url: params.url, name: params.name });
+                        responseData = { message: `从 ${params.url} 移除Cookie '${params.name}' 成功。` };
+                        break;
+                    case 'getAll':
+                        if (!params.url) throw new Error('获取所有Cookie需要 url');
+                        cookieResult = await chrome.cookies.getAll({ url: params.url });
+                        responseData = { cookies: cookieResult };
+                        break;
+                    default:
+                        throw new Error(`未知的Cookie子操作: ${sub_action}`);
+                }
+                sendResponse(id, 'success', responseData);
+                break;
+
+            // =================================================================
+            // 新增功能: 系统与浏览器信息
+            // =================================================================
+
+            /**
+             * @action get_system_info
+             * @description 获取客户端的 CPU, 内存和存储信息。
+             * @payload {} (无需额外参数)
+             */
+            case 'get_system_info':
+                const [cpuInfo, memoryInfo, storageInfo] = await Promise.all([
+                    chrome.system.cpu.getInfo(),
+                    chrome.system.memory.getInfo(),
+                    chrome.system.storage.getInfo()
+                ]);
+                responseData = { cpu: cpuInfo, memory: memoryInfo, storage: storageInfo };
+                sendResponse(id, 'success', responseData);
+                break;
+
+            /**
+             * @action speak_text
+             * @description 使用浏览器的TTS引擎朗读指定的文本。
+             * @payload { "text": "...", "rate": 1.0, "pitch": 1.0, "volume": 1.0 } (rate, pitch, volume 可选)
+             */
+            case 'speak_text':
+                if (!payload || !payload.text) {
+                    throw new Error('speak_text 的 payload 中缺少 text 参数');
+                }
+                chrome.tts.speak(payload.text, {
+                    rate: payload.rate || 1.0,
+                    pitch: payload.pitch || 1.0,
+                    volume: payload.volume || 1.0
+                });
+                responseData = { message: `已开始朗读文本: "${payload.text.substring(0, 50)}..."` };
+                sendResponse(id, 'success', responseData);
+                break;
+
+            /**
+             * @action search_query
+             * @description 使用浏览器默认搜索引擎在新标签页中执行搜索。
+             * @payload { "text": "..." }
+             */
+            case 'search_query':
+                if (!payload || !payload.text) {
+                    throw new Error('search_query 的 payload 中缺少 text 参数');
+                }
+                chrome.search.query({ text: payload.text });
+                responseData = { message: `已执行搜索: "${payload.text}"` };
+                sendResponse(id, 'success', responseData);
+                break;
+
+            /**
+             * @action update_net_rules
+             * @description 动态更新 declarativeNetRequest 规则。
+             * @payload { "addRules": [...], "removeRuleIds": [...] }
+             */
+            case 'update_net_rules':
+                if (!payload) {
+                    throw new Error('update_net_rules 的 payload 不能为空');
+                }
+                await chrome.declarativeNetRequest.updateDynamicRules({
+                    addRules: payload.addRules || [],
+                    removeRuleIds: payload.removeRuleIds || []
+                });
+                responseData = { message: '网络请求规则已更新' };
+                sendResponse(id, 'success', responseData);
+                break;
+
+            // =================================================================
+            // 默认处理
+            // =================================================================
             default:
                 throw new Error(`收到了未知的操作指令: ${action}`);
         }

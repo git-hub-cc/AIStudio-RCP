@@ -10,7 +10,7 @@ body {
 
 .container {
     width: 100%;
-    max-width: 1200px;
+    max-width: 1400px; /* 增加宽度以容纳更多控件 */
     background: #fff;
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -54,17 +54,15 @@ main {
     padding: 25px;
 }
 
-.control-panel, .log-panel {
-    padding: 20px;
-}
-
 .control-panel {
-    flex: 1;
+    flex: 2; /* 给控制面板更多空间 */
     border-right: 1px solid #e2e8f0;
+    padding-right: 25px;
 }
 
 .log-panel {
-    flex: 2;
+    flex: 3; /* 日志面板相应调整 */
+    padding-left: 25px;
 }
 
 h2 {
@@ -78,45 +76,70 @@ h2 {
 fieldset {
     border: 1px solid #cbd5e0;
     border-radius: 6px;
-    padding: 15px;
-    margin-bottom: 20px;
+    padding: 20px;
+    margin-bottom: 25px;
 }
 
 legend {
     font-weight: 600;
     color: #4a5568;
     padding: 0 10px;
+    font-size: 1.1em;
 }
 
 .form-group {
     display: flex;
     align-items: center;
     gap: 10px;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
 }
-/* NEW: 垂直布局的表单组 */
+
+.form-group:last-child {
+    margin-bottom: 0;
+}
+
 .form-group.vertical {
     flex-direction: column;
     align-items: stretch;
+    gap: 8px;
 }
+
+/* NEW: 用于一行多个按钮 */
+.form-group.multi-button {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.form-group.multi-button button {
+    width: 100%;
+}
+
 
 label {
     font-weight: 500;
+    display: block; /* 使其独占一行在 vertical 布局中 */
 }
 
 input[type="text"], select, textarea {
-    flex-grow: 1;
-    padding: 8px 12px;
+    width: 100%; /* 确保输入框撑满容器 */
+    padding: 10px 12px;
     border: 1px solid #cbd5e0;
     border-radius: 4px;
     font-size: 1em;
-    font-family: inherit; /* NEW: 继承字体 */
+    font-family: inherit;
+    box-sizing: border-box; /* 关键属性，防止padding撑破布局 */
 }
 
-/* NEW: Textarea特定样式 */
 textarea {
     resize: vertical;
     min-height: 80px;
+}
+
+/* NEW: 专门用于代码输入的样式 */
+.code-input {
+    font-family: "Fira Code", "Courier New", monospace;
+    font-size: 0.9em;
+    background-color: #f7fafc;
 }
 
 button {
@@ -126,8 +149,10 @@ button {
     padding: 10px 15px;
     border-radius: 4px;
     font-size: 1em;
+    font-weight: 500;
     cursor: pointer;
     transition: background-color 0.2s;
+    white-space: nowrap; /* 防止按钮文字换行 */
 }
 
 button:hover {
@@ -144,7 +169,8 @@ button:disabled {
     color: #f7fafc;
     padding: 15px;
     border-radius: 6px;
-    height: 1000px;
+    height: calc(100vh - 150px); /* 动态计算高度 */
+    min-height: 500px;
     overflow-y: auto;
     white-space: pre-wrap;
     word-wrap: break-word;
@@ -152,11 +178,15 @@ button:disabled {
     font-size: 0.9em;
 }
 
-/* NEW: AI Response Preview Styles */
 .response-preview {
     margin-top: 15px;
     font-size: 0.9em;
     color: #4a5568;
+}
+
+.response-preview strong {
+    display: block;
+    margin-bottom: 5px;
 }
 
 .response-preview pre {
@@ -164,10 +194,15 @@ button:disabled {
     border: 1px solid #e2e8f0;
     border-radius: 4px;
     padding: 10px;
-    margin-top: 5px;
+    margin: 0;
     font-size: 0.85em;
     white-space: pre-wrap;
     word-break: break-all;
-    max-height: 150px;
+    max-height: 200px; /* 增加预览区高度 */
     overflow-y: auto;
+}
+
+/* NEW: 辅助类用于隐藏/显示元素 */
+.hidden {
+    display: none !important;
 }

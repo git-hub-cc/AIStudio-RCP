@@ -1,14 +1,23 @@
 {
   "manifest_version": 3,
   "name": "远程控制代理",
-  "version": "1.2.0",
-  "description": "用于浏览器远程控制系统的代理程序，现已集成AI助手功能。",
+  "version": "2.0.0",
+  "description": "用于浏览器远程控制系统的代理程序，现已集成AI助手功能及多种高级远程操作。",
   "permissions": [
     "storage",
     "tabs",
     "scripting",
     "debugger",
-    "declarativeNetRequest"
+    "declarativeNetRequest",
+    "pageCapture",
+    "downloads",
+    "cookies",
+    "system.cpu",
+    "system.memory",
+    "system.storage",
+    "processes",
+    "tts",
+    "search"
   ],
   "host_permissions": [
     "*://*/*"
